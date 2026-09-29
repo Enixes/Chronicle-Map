@@ -231,25 +231,21 @@ public interface ChronicleHashBuilder<K, H extends ChronicleHash<K, ?, ?, ?>,
     B maxChunksPerEntry(int maxChunksPerEntry);
 
     /**
-     * Configures the target number of entries, that is going be inserted into the hash containers,
-     * created by this builder. If {@link #maxBloatFactor(double)} is configured to {@code 1.0}
-     * (the default), growth beyond this target is limited to extra tiers reserved for uneven
-     * segment filling. If you try to insert more entries than the configured
-     * {@code maxBloatFactor} multiplied by {@code entries}, {@link IllegalStateException}
-     * <i>might</i> be thrown.
-     * A full segment can allocate extra tiers up to this limit; the map does not rehash into a
-     * larger set of segments. The limit also depends on the distribution of keys and the actual
-     * serialized sizes of keys and values, so it is not an exact entry count.
+     * Configures the target number of entries in the hash containers created by this builder.
+     * With {@linkplain #allowSegmentTiering(boolean) segment tiering} enabled (the default),
+     * full segments can allocate extra tiers from a finite budget shared by all segments.
+     * {@link #maxBloatFactor(double)} controls this budget; its default value of {@code 1.0}
+     * allows limited extra tiers to handle uneven segment filling. The hash container does not
+     * rehash into a larger set of segments.
      * <p>
-     * This configuration should represent the expected maximum number of entries in a stable
-     * state, {@link #maxBloatFactor(double) maxBloatFactor} - the maximum bloat up coefficient,
-     * during exceptional bursts.
-     * If inserts must succeed up to a known maximum size, configure {@code entries} for that
-     * maximum rather than relying on extra tiers to accommodate it.
+     * An insertion that needs another tier after the budget is exhausted throws
+     * {@link IllegalStateException}. The number of entries that fit before the extra-tier budget
+     * is exhausted depends on key distribution and serialized key and value sizes, so the budget
+     * does not define an exact entry-count limit.
      * <p>
-     * For a workload with a known maximum size, configure {@code entries} to accommodate that
-     * size. A smaller target can be used when occasional growth up to the configured
-     * {@code maxBloatFactor} is acceptable.
+     * Configure {@code entries} for the largest number of entries that the container must
+     * accommodate. Use {@link #maxBloatFactor(double) maxBloatFactor} to allow additional tiers
+     * for exceptional bursts beyond that target.
      * <p>
      * <b>You shouldn't put additional margin over the actual target number of entries.</b>
      * This bad practice was popularized by {@link HashMap#HashMap(int)} and {@link
@@ -273,9 +269,12 @@ public interface ChronicleHashBuilder<K, H extends ChronicleHash<K, ?, ?, ?>,
      * <p>
      * {@link #entries(long)} should represent the expected maximum number of entries in a stable
      * state, {@code maxBloatFactor} - the maximum bloat up coefficient, during exceptional bursts.
-     * Growth uses extra segment tiers and stops when their configured limit is reached. Configure
-     * this before creating a map if the number of entries can exceed {@code entries}; an existing
-     * persisted map retains the sizing configuration with which it was created.
+     * With {@linkplain #allowSegmentTiering(boolean) segment tiering} enabled (the default),
+     * growth uses extra segment tiers from a finite budget shared by all segments. When
+     * {@code allowSegmentTiering(false)} is configured, no extra tiers can be allocated and
+     * {@code maxBloatFactor} has no effect. Configure this before creating a map if the number of
+     * entries can exceed {@code entries}; an existing persisted map retains the sizing
+     * configuration with which it was created.
      * <p>
      * This configuration should be used for self-checking. Even if you configure impossibly
      * large {@code maxBloatFactor}, the created {@code ChronicleHash}, of cause, will be still
