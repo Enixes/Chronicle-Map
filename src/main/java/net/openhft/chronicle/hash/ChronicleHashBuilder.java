@@ -233,17 +233,23 @@ public interface ChronicleHashBuilder<K, H extends ChronicleHash<K, ?, ?, ?>,
     /**
      * Configures the target number of entries, that is going be inserted into the hash containers,
      * created by this builder. If {@link #maxBloatFactor(double)} is configured to {@code 1.0}
-     * (and this is by default), this number of entries is also the maximum. If you try to insert
-     * more entries, than the configured {@code maxBloatFactor}, multiplied by the given number of
-     * {@code entries}, {@link IllegalStateException} <i>might</i> be thrown.
+     * (the default), growth beyond this target is limited to extra tiers reserved for uneven
+     * segment filling. If you try to insert more entries than the configured
+     * {@code maxBloatFactor} multiplied by {@code entries}, {@link IllegalStateException}
+     * <i>might</i> be thrown.
+     * A full segment can allocate extra tiers up to this limit; the map does not rehash into a
+     * larger set of segments. The limit also depends on the distribution of keys and the actual
+     * serialized sizes of keys and values, so it is not an exact entry count.
      * <p>
      * This configuration should represent the expected maximum number of entries in a stable
      * state, {@link #maxBloatFactor(double) maxBloatFactor} - the maximum bloat up coefficient,
      * during exceptional bursts.
+     * If inserts must succeed up to a known maximum size, configure {@code entries} for that
+     * maximum rather than relying on extra tiers to accommodate it.
      * <p>
-     * To be more precise - try to configure the {@code entries} so, that the created hash
-     * container is going to serve about 99% requests being less or equal than this number
-     * of entries in size.
+     * For a workload with a known maximum size, configure {@code entries} to accommodate that
+     * size. A smaller target can be used when occasional growth up to the configured
+     * {@code maxBloatFactor} is acceptable.
      * <p>
      * <b>You shouldn't put additional margin over the actual target number of entries.</b>
      * This bad practice was popularized by {@link HashMap#HashMap(int)} and {@link
@@ -267,6 +273,9 @@ public interface ChronicleHashBuilder<K, H extends ChronicleHash<K, ?, ?, ?>,
      * <p>
      * {@link #entries(long)} should represent the expected maximum number of entries in a stable
      * state, {@code maxBloatFactor} - the maximum bloat up coefficient, during exceptional bursts.
+     * Growth uses extra segment tiers and stops when their configured limit is reached. Configure
+     * this before creating a map if the number of entries can exceed {@code entries}; an existing
+     * persisted map retains the sizing configuration with which it was created.
      * <p>
      * This configuration should be used for self-checking. Even if you configure impossibly
      * large {@code maxBloatFactor}, the created {@code ChronicleHash}, of cause, will be still
